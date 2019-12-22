@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<mule xmlns:dw="http://www.mulesoft.org/schema/mule/ee/dw" xmlns:file="http://www.mulesoft.org/schema/mule/file"
+	xmlns:db="http://www.mulesoft.org/schema/mule/db" xmlns:batch="http://www.mulesoft.org/schema/mule/batch"
+	xmlns="http://www.mulesoft.org/schema/mule/core" xmlns:doc="http://www.mulesoft.org/schema/mule/documentation"
+	xmlns:spring="http://www.springframework.org/schema/beans" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-current.xsd
+http://www.mulesoft.org/schema/mule/core http://www.mulesoft.org/schema/mule/core/current/mule.xsd
+http://www.mulesoft.org/schema/mule/file http://www.mulesoft.org/schema/mule/file/current/mule-file.xsd
+http://www.mulesoft.org/schema/mule/batch http://www.mulesoft.org/schema/mule/batch/current/mule-batch.xsd
+http://www.mulesoft.org/schema/mule/db http://www.mulesoft.org/schema/mule/db/current/mule-db.xsd
+http://www.mulesoft.org/schema/mule/ee/dw http://www.mulesoft.org/schema/mule/ee/dw/current/dw.xsd">
+	<db:oracle-config name="Oracle_Configuration" host="Lenovo-PC"
+		port="1521" instance="XE" user="sawan" password="tiger" doc:name="Oracle Configuration" />
+    <file:connector name="File" writeToDirectory="C:\Users\sawan sharma\Desktop\mule_OUT" autoDelete="true" streaming="true" validateConnections="true" doc:name="File"/>
+	<flow name="mule-batch-processingFlow">
+		<file:inbound-endpoint
+			path="input-test"
+			responseTimeout="10000" doc:name="File" />
+		<file:file-to-string-transformer
+			doc:name="File to String" />
+		<batch:execute name="mule-batch-processingBatch"
+			doc:name="Batch Execute" />
+	</flow>
+	<batch:job name="mule-batch-processingBatch"
+		max-failed-records="-1">
+		<batch:input>
+			<logger message="Start Batch Flow" level="INFO" doc:name="Logger" />
+			<set-payload value="#[payload.split(&quot;\n&quot;)]"
+				doc:name="Payload Split" />
+		</batch:input>
+		<batch:process-records>
+			<batch:step name="Batch_Step">
+                <dw:transform-message doc:name="Transform Message">
+                    <dw:set-payload><![CDATA[%dw 1.0
+%output application/java
+%var data = payload splitBy ","
+---
+({
+	(seq : data[0] as :number) when data[0] != "seq",
+	(first:data[1]) when data[1] != "first",
+	(last :data[2]) when data[2] != "last"
+})]]></dw:set-payload>
+                </dw:transform-message>
+                <logger message="Thread Name Processing Record -----&gt; #[java.lang.Thread.currentThread()]" level="INFO" doc:name="Logger"/>
+                <file:outbound-endpoint path="mule_OUT" outputPattern="['Test_'+server.dateTime.format('yyyyMMddHHmmssSSSSSS')]" connector-ref="File" responseTimeout="10000" doc:name="File"/>
+			</batch:step>
+		</batch:process-records>
+		<batch:on-complete>
+			<logger message="Complated -- #[payload.elapsedTimeInMillis]"
+				level="INFO" doc:name="Logger" />
+		</batch:on-complete>
+	</batch:job>
+</mule>
